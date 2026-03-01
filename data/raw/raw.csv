@@ -1,0 +1,5 @@
+name,company,ai,cleaning,washing,misc
+molly,company123,,,,"good,bad,great"
+alice,company123,already has AI,,,"cleaning: extra1, washing - extra2"
+bob,company999,,,already has washing,washing: onlyone
+

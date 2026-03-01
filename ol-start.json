@@ -1,0 +1,14 @@
+{
+  "eventType": "START",
+  "eventTime": "2026-01-25T00:00:00.000Z",
+  "run": { "runId": "11111111-1111-1111-1111-111111111111" },
+  "job": { "namespace": "pipeline_observatory", "name": "demo_job" },
+  "inputs": [
+    { "namespace": "pipeline_observatory", "name": "file:/data/raw/raw.csv" }
+  ],
+  "outputs": [
+    { "namespace": "pipeline_observatory", "name": "file:/data/clean/clean.parquet" }
+  ],
+  "producer": "https://example.com/pipeline-observatory",
+  "schemaURL": "https://openlineage.io/spec/1-0-0/OpenLineage.json"
+}

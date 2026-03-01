@@ -1,0 +1,139 @@
+services:
+  marquez-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - marquez_db:/var/lib/postgresql/data
+
+  marquez:
+    image: marquezproject/marquez:latest
+    platform: linux/amd64
+    depends_on:
+      - marquez-db
+    environment:
+      MARQUEZ_PORT: 5000
+      MARQUEZ_ADMIN_PORT: 5001
+      POSTGRES_HOST: marquez-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: marquez
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5002:5000"
+      - "5001:5001"
+
+  marquez-web:
+    image: marquezproject/marquez-web:latest
+    platform: linux/amd64
+    depends_on:
+      - marquez
+    environment:
+      MARQUEZ_HOST: marquez
+      MARQUEZ_PORT: 5000
+      WEB_PORT: 3000
+      AIRFLOW__WEBSERVER__SECRET_KEY: "supersecret_same_everywhere_123"
+    ports:
+      - "3000:3000"
+
+  airflow-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${AIRFLOW_USERNAME}
+      POSTGRES_PASSWORD: ${AIRFLOW_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB}
+      AIRFLOW__WEBSERVER__SECRET_KEY: "supersecret_same_everywhere_123"
+      AIRFLOW__OPENLINEAGE__NAMESPACE: "pipeline_observatory"
+      OPENLINEAGE_NAMESPACE: "pipeline_observatory"
+      AIRFLOW__OPENLINEAGE__DEBUG_MODE: "true"
+      AIRFLOW__OPENLINEAGE__EXTRACTORS: "observatory_extractors.ObservatoryPythonExtractor"
+    volumes:
+      - airflow_db:/var/lib/postgresql/data
+
+  airflow-init:
+    image: apache/airflow:2.9.3
+    depends_on:
+      - airflow-db
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _PIP_ADDITIONAL_REQUIREMENTS: >-
+        apache-airflow-providers-openlineage
+        pandas pyarrow requests
+      AIRFLOW__OPENLINEAGE__TRANSPORT: >-
+          {"type":"http","url":"http://marquez:5000","endpoint":"api/v1/lineage"}
+      AIRFLOW__OPENLINEAGE__NAMESPACE: "pipeline_observatory"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "supersecret_same_everywhere_123"
+      OPENLINEAGE_NAMESPACE: "pipeline_observatory"
+      AIRFLOW__OPENLINEAGE__DEBUG_MODE: "true"
+      AIRFLOW__OPENLINEAGE__EXTRACTORS: "observatory_extractors.ObservatoryPythonExtractor"
+    user: "50000:0"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+    entrypoint: /bin/bash
+    command: -c "airflow db migrate &&
+                airflow users create
+                --username airflow
+                --password airflow
+                --firstname Airflow
+                --lastname Admin
+                --role Admin
+                --email airflow@example.com || true"
+
+  airflow-webserver:
+    image: apache/airflow:2.9.3
+    depends_on:
+      - airflow-init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _PIP_ADDITIONAL_REQUIREMENTS: >-
+        apache-airflow-providers-openlineage
+        pandas pyarrow requests
+      AIRFLOW__OPENLINEAGE__TRANSPORT: >-
+          {"type":"http","url":"http://marquez:5000","endpoint":"api/v1/lineage"}
+      AIRFLOW__OPENLINEAGE__NAMESPACE: "pipeline_observatory"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "supersecret_same_everywhere_123"
+      OPENLINEAGE_NAMESPACE: "pipeline_observatory"
+      AIRFLOW__OPENLINEAGE__DEBUG_MODE: "true"
+      AIRFLOW__OPENLINEAGE__EXTRACTORS: "observatory_extractors.ObservatoryPythonExtractor"
+    user: "50000:0"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.3
+    depends_on:
+      - airflow-init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _PIP_ADDITIONAL_REQUIREMENTS: >-
+        apache-airflow-providers-openlineage
+        pandas pyarrow requests
+      AIRFLOW__OPENLINEAGE__TRANSPORT: >-
+          {"type":"http","url":"http://marquez:5000","endpoint":"api/v1/lineage"}
+      AIRFLOW__OPENLINEAGE__NAMESPACE: "pipeline_observatory"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "supersecret_same_everywhere_123"
+      OPENLINEAGE_NAMESPACE: "pipeline_observatory"
+      AIRFLOW__OPENLINEAGE__DEBUG_MODE: "true"
+      AIRFLOW__OPENLINEAGE__EXTRACTORS: "observatory_extractors.ObservatoryPythonExtractor"
+    user: "50000:0"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+    command: scheduler
+
+volumes:
+  marquez_db:
+  airflow_db:
